@@ -2,12 +2,23 @@
 #include "AudioBuffer.h"
 #include "FileSystem.h"
 
+#ifdef __TIZEN__
+#include <FBase.h>
+#include <FMedia.h>
+
+using namespace Tizen::Base;
+using namespace Tizen::Base::Collection;
+using namespace Tizen::Media;
+using namespace Tizen::Io;
+#endif
+
 namespace gameplay
 {
 
 // Audio buffer cache
 static std::vector<AudioBuffer*> __buffers;
 
+#ifndef DISABLE_VORBIS
 // Callbacks for loading an ogg file using Stream
 static size_t readStream(void *ptr, size_t size, size_t nmemb, void *datasource)
 {
@@ -37,6 +48,7 @@ static long tellStream(void *datasource)
     Stream* stream = reinterpret_cast<Stream*>(datasource);
     return stream->position();
 }
+#endif
 
 AudioBuffer::AudioBuffer(const char* path, ALuint buffer)
     : _filePath(path), _alBuffer(buffer)
@@ -330,6 +342,76 @@ bool AudioBuffer::loadWav(Stream* stream, ALuint buffer)
     return false;
 }
 
+#ifdef __TIZEN__
+static ALenum getALFormat(AudioSampleType sampleType, AudioChannelType channelType)
+{
+    if (sampleType == AUDIO_TYPE_PCM_U8) {
+        if (channelType == AUDIO_CHANNEL_TYPE_MONO)
+            return AL_FORMAT_MONO8;
+        return AL_FORMAT_STEREO8;
+    }
+    if (sampleType == AUDIO_TYPE_PCM_S16_LE) {
+        if (channelType == AUDIO_CHANNEL_TYPE_MONO)
+            return AL_FORMAT_MONO16;
+        return AL_FORMAT_STEREO16;
+    }
+
+    return AL_NONE;
+}
+
+bool AudioBuffer::loadOgg(Stream* stream, ALuint buffer)
+{
+    GP_ASSERT(stream);
+    ALenum format;
+    int section;
+    long size = 0;
+    result ret;
+
+    stream->rewind();
+
+    char *bytes = new char[stream->length()];
+    stream->read(bytes, sizeof(char), stream->length());
+
+    ByteBuffer inputBuffer;
+    inputBuffer.Construct(stream->length());
+    inputBuffer.SetArray((const byte*)bytes, 0, stream->length());
+    delete [] bytes;
+    inputBuffer.Flip();
+    ByteBuffer pcm;
+    /* Decoding is broken on Tizen for now, gradually expanding the output
+     * buffer doesn't work as expected. But hopefully it should be fixed soon.
+     * That's why we try to allocate a supposedly big buffer from the beginning.
+     */
+    pcm.Construct(/*capacity*/ 25 * stream->length());
+
+    AudioDecoder decoder;
+    decoder.Construct(CODEC_VORBIS);
+
+    AudioSampleType sampleType = AUDIO_TYPE_NONE;
+    AudioChannelType channelType = AUDIO_CHANNEL_TYPE_NONE;
+
+    int sampleRate = 0;
+
+    if (E_SUCCESS != (ret = decoder.Probe(inputBuffer, sampleType, channelType, sampleRate))) {
+        return false;
+    }
+
+    while (inputBuffer.GetRemaining()) {
+        ret = decoder.Decode(inputBuffer, pcm);
+        if (ret == E_OUT_OF_MEMORY) {
+            pcm.ExpandCapacity(pcm.GetCapacity() * 2);
+        } else if (IsFailed(ret)) {
+            return false;
+        }
+    }
+
+    format = getALFormat(sampleType, channelType);
+    AL_CHECK( alBufferData(buffer, format, pcm.GetPointer(), pcm.GetPosition(), sampleRate) );
+
+    return true;
+}
+
+#else
 bool AudioBuffer::loadOgg(Stream* stream, ALuint buffer)
 {
     GP_ASSERT(stream);
@@ -399,5 +481,6 @@ bool AudioBuffer::loadOgg(Stream* stream, ALuint buffer)
 
     return true;
 }
+#endif
 
 }
