@@ -68,6 +68,10 @@ extern void print(const char* format, ...);
 #define __current__func__ __func__
 #endif
 
+#ifdef __TIZEN__
+#define DISABLE_VORBIS
+#endif
+
 // Assert macros.
 #ifdef _DEBUG
 #define GP_ASSERT(expression) assert(expression)
@@ -172,6 +176,10 @@ extern void print(const char* format, ...);
 #elif __ANDROID__
 #include <AL/al.h>
 #include <AL/alc.h>
+#elif __TIZEN__
+#include <AL/al.h>
+#include <AL/alc.h>
+#include <AL/alut.h>
 #elif __linux__
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -182,7 +190,9 @@ extern void print(const char* format, ...);
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
 #endif
+#ifndef DISABLE_VORBIS
 #include <vorbis/vorbisfile.h>
+#endif
 
 // Image
 #include <png.h>
@@ -226,6 +236,21 @@ using std::va_list;
     #define GLEW_STATIC
     #include <GL/glew.h>
     #define USE_VAO
+#elif __TIZEN__
+    #include <FGraphicsOpengl2.h>
+    using namespace Tizen::Graphics::Opengl;
+    typedef void (GL_APIENTRYP PFNGLBINDVERTEXARRAYOESPROC) (GLuint array);
+    typedef void (GL_APIENTRYP PFNGLDELETEVERTEXARRAYSOESPROC) (GLsizei n, const GLuint *arrays);
+    typedef void (GL_APIENTRYP PFNGLGENVERTEXARRAYSOESPROC) (GLsizei n, GLuint *arrays);
+    typedef GLboolean (GL_APIENTRYP PFNGLISVERTEXARRAYOESPROC) (GLuint array);
+
+    extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArray;
+    extern PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArrays;
+    extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArrays;
+    extern PFNGLISVERTEXARRAYOESPROC glIsVertexArray;
+    #define GL_DEPTH24_STENCIL8 GL_DEPTH24_STENCIL8_OES
+    #define glClearDepth glClearDepthf
+    #define OPENGL_ES
 #elif __linux__
         #define GLEW_STATIC
         #include <GL/glew.h>
