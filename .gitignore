@@ -7,7 +7,7 @@
 ehthumbs.db
 Icon?
 Thumbs.db
-/.metadata
+.metadata
 /169.254.0.1
 /usb
 /ipch
@@ -32,6 +32,9 @@ Thumbs.db
 /api/html
 /gameplay-tests
 gameplay.xcworkspace/xcshareddata/gameplay.xccheckout
+libgameplay.a
+gameplay/tizen/tizen-device-debug/src/
+gameplay/tizen/tizen-device-release/src/
 
 /gameplay/Debug
 /gameplay/DebugMem
